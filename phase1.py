@@ -11,18 +11,22 @@ except ImportError as args:
 
 
 def populateColl(db, collectionName, jsonFile):
-    collection = db[collectionName]
-    with open(jsonFile) as f:
-        data = json.load(f)[collectionName]["row"]
-    if isinstance(data, list):
-        collection.insert_many(data)
-    else:
-        collection.insert_one(data)
-    return collection
+
+    try:
+        collection = db[collectionName]
+        with open(jsonFile) as f:
+            data = json.load(f)[collectionName]["row"]
+        if isinstance(data, list):
+            collection.insert_many(data)
+        else:
+            collection.insert_one(data)
+        return collection
+    except:
+        print("Error populating collections")
 
 
 def LoadJSON(client):
-    print("Resetting " + "291db" + " database...")
+    print("Loading...")
     startTime = time.time()
 
     db = client["291db"]
@@ -33,30 +37,42 @@ def LoadJSON(client):
     for i in range(3):
         populateColl(db, collections[i], files[i])
 
-    timeTaken = time.time() - startTime
-    print("Sucessfully reset (" + str(timeTaken) + " seconds)")
+    return db
 
 
-def connectDatabase(port):
+def connectDatabase(port, startTime):
     os.system('clear')
     try:
         client = MongoClient(port=port)
 
-        # Drop database if already exists
+        print("Dropping existing database if any...")
         if "291db" in client.list_database_names():
             client.drop_database("291db")
 
-        #
-        LoadJSON(client)
+        db = LoadJSON(client)
+
+        finalTime = time.time() - startTime
+        print("Time taken to load JSON data: ")
+        print(finalTime)
+
+        print("Adding text indexing for search...")
+        posts = db['posts']
+        posts.create_index(
+            [('Title', 'text'), ('Body', 'text'), ('Tags', 'text')])
+        print("Done")
+        finalfinaltime = time.time() - startTime
+        print("Time taken in total: " + str(finalfinaltime))
+
     except:
-        print("Reset Failed, try again. Hint: Make sure .json files are present in phase1.py directory")
+        print("Error, database could not be remade. Hint: Make sure .json files are present in phase1.py directory")
 
 
 if __name__ == "__main__":
     try:
         if len(sys.argv[1]) == 5:
+            startTime = time.time()
             port = int(sys.argv[1])
-            connectDatabase(port)
+            connectDatabase(port, startTime)
 
         else:
             exit(0)
